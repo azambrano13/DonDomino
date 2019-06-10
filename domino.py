@@ -1,5 +1,6 @@
 from itertools import combinations 
 import random as rnd
+import definitions as defs
 
 DEBUG = True
 
@@ -10,7 +11,8 @@ class Juego:
         self.nJug = nJug
 
         nFichas = int(self.cantFichas()/nJug)
-        self.jugadores = [ Jugador( i, nFichas, nMax ) for i in range(nJug) ]
+        types = ['random','random','random','random']
+        self.jugadores = [ Jugador( i, nFichas, nMax, types[i] ) for i in range(nJug) ]
 
         self.tablero = []
 
@@ -35,7 +37,7 @@ class Juego:
         acabar = False
 
         while not acabar:
-            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero )
+            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugar( self.tablero )
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
@@ -78,10 +80,13 @@ class Juego:
         print(s+"\n")
         
 class Jugador:
-    def __init__(self, id:int, nFichas:int, nMax:int):
+    def __init__(self, id:int, nFichas:int, nMax:int, typeAgent):
         self.id = id
         self.fichas = []
         self.nMax = nMax
+        
+        self.typeAgent = typeAgent
+        self.policy = None if typeAgent == 'random' else defs.Policy( 147 )
 
     def __str__(self):
         s = f'Jugador {self.id:d}:\n\t'
@@ -116,6 +121,12 @@ class Jugador:
                     else : tablero = tablero + [ficha.inv()]
 
         return tablero, ficha, len( self.fichas ) == 0, ficha is None
+
+    def jugar( self, tablero, fichas=[] ) :
+        if self.typeAgent == 'random': return self.jugarRandom( tablero )
+        else :
+            # Código para Policy Gradient
+            pass
 
 class Ficha:
     def __init__(self, n1:int, n2:int, id:int):

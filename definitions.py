@@ -16,14 +16,12 @@ from copy import deepcopy
 from torch.autograd import Variable
 
 
-
-
 class Policy(nn.Module):
 
-    def __init__(self,gamma,dim_state):
+    def __init__(self,dim_state,gamma=0.9):
         super(Policy, self).__init__()
         self.state_space = dim_state
-        self.action_space =28
+        self.action_space = 28*2
 
         self.l1 = nn.Linear(self.state_space, 128, bias=False)
         self.l2 = nn.Linear(128, self.action_space, bias=False)
