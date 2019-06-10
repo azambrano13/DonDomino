@@ -1,2 +1,2 @@
 # DonDomino
- Es proyecto busca utilizar RL para el dominó.
+ Este proyecto busca utilizar RL para el dominó.
