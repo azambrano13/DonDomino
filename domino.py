@@ -16,6 +16,7 @@ class Juego:
         self.jugadores = [ Jugador( i, nFichas, nMax, types[i] ) for i in range(nJug) ]
 
         self.tablero = []
+        self.fichas = []
 
         self.jugar()
 
@@ -29,7 +30,7 @@ class Juego:
 
         idx = -1
         for i,j in enumerate(self.jugadores):
-            if Ficha(self.nMax,self.nMax,0) in j.fichas:
+            if Ficha(self.nMax,self.nMax) in j.fichas:
                 idx = i
                 break
 
@@ -37,6 +38,16 @@ class Juego:
         nPas = 0
         acabar = False
         fichas = [ dpc( self.jugadores[i].fichas ) for i in range(self.nJug) ]
+
+        self.encFichas = Encoder( self.fichas )
+        self.encNum = Encoder( range(self.nMax+1) )
+        
+        if DEBUG : 
+            # print( self.fichas )
+            # print( fichas )
+            # fTemp = Ficha( 0,4 )
+            # print( self.fichas.index( fTemp ) )
+            print( self.encFichas.encode( fichas[0] ) )
 
         while not acabar:
             self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugar( self.tablero, fichas )
@@ -58,8 +69,6 @@ class Juego:
         idx = (idx-1)%self.nJug
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
-        
-        print( fichas )
 
     def repartir(self):
         numeros = range(self.nMax+1)
@@ -69,8 +78,9 @@ class Juego:
 
         jugIdx = [ i%self.nJug for i in range(len(fichas)) ]
         rnd.shuffle( jugIdx )
-        for i, (ficha, jug) in enumerate( zip( fichas, jugIdx ) ): 
-            f = Ficha(ficha[0],ficha[1],i)
+        for ficha, jug in zip( fichas, jugIdx ): 
+            f = Ficha(ficha[0],ficha[1])
+            self.fichas.append( dpc( f ) )
             self.jugadores[jug].agregarFicha( f )
             #if DEBUG:print( f'{i:d}: {f}' )
 
@@ -102,7 +112,7 @@ class Jugador:
 
     def jugarRandom( self, tablero ):
         if not tablero:
-            ficha =  Ficha(self.nMax,self.nMax,0)
+            ficha =  Ficha(self.nMax,self.nMax)
             self.fichas.remove( ficha )
             tablero.append( ficha )
         else:
@@ -133,10 +143,9 @@ class Jugador:
             pass
 
 class Ficha:
-    def __init__(self, n1:int, n2:int, id:int):
+    def __init__(self, n1:int, n2:int):
         self.n1 = n1
         self.n2 = n2
-        self.id = id
 
     def __str__(self):
         return f'[{self.n1:d}|{self.n2:d}]'
@@ -154,5 +163,19 @@ class Ficha:
         self.n1, self.n2 = self.n2, self.n1
         return self
 
+class Encoder: 
+    def __init__(self, elements):
+        self.elements = elements
+
+    def encode( self, newElements ) :
+        e = len(self.elements)*[0]
+        for ne in newElements : e[ self.elements.index( ne ) ] = 1
+        return e
+
+    def decode( self, codeElements ) :
+        e = []
+        for i,ce in enumerate(codeElements) : 
+            if ce == 1 : e.append( self.elements[i] )
+        return e
 
 j = Juego(6,4)
