@@ -1,5 +1,6 @@
 from itertools import combinations 
 import random as rnd
+from copy import deepcopy as dpc
 import definitions as defs
 
 DEBUG = True
@@ -35,9 +36,10 @@ class Juego:
         k = 0
         nPas = 0
         acabar = False
+        fichas = [ dpc( self.jugadores[i].fichas ) for i in range(self.nJug) ]
 
         while not acabar:
-            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugar( self.tablero )
+            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugar( self.tablero, fichas )
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
@@ -56,6 +58,8 @@ class Juego:
         idx = (idx-1)%self.nJug
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
+        
+        print( fichas )
 
     def repartir(self):
         numeros = range(self.nMax+1)
