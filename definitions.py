@@ -14,8 +14,61 @@ import numpy as np
 import random
 from copy import deepcopy
 from torch.autograd import Variable
+def calcular_recompenza(quien_gano,LAMBDA,jugadas_invalidas):
+    veces=len(jugadas_invalidas)
+    recompenzas=[]
+    if quien_gano==0:
+        base=np.array([LAMBDA]*veces)
+        exponente=np.array(range(len(base)))
+        recompenzas=np.power(base,exponente)*1
+        recompenzas=list(recompenzas)
+        recompenzas.reverse()
+    else:
+        base = np.array([LAMBDA] * veces)
+        exponente = np.array(range(len(base)))
+        recompenzas = np.power(base, exponente) * -1
+        recompenzas = list(recompenzas)
+        recompenzas.reverse()
+    # if quien_gano==0:
+    #     base = np.array([0] * veces)
+    #     base[-1]=1
+    #     recompenzas=base
+    # else:
+    #     base = np.array([0] * veces)
+    #     base[-1] = -1
+    #     recompenzas = base
+    recompenzas=np.array(recompenzas)
+    recompenzas[jugadas_invalidas]=-10
+
+    return recompenzas
 
 
+def update_policy(policy,optimizer):
+    R = 0
+    rewards = []
+
+    # Discount future rewards back to the present using gamma
+    for r in policy.reward_episode[::-1]:
+        R = r + policy.gamma * R
+        rewards.insert(0, R)
+
+    # Scale rewards
+    rewards = torch.FloatTensor(rewards)
+    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+
+    # Calculate loss
+    loss = (torch.sum(torch.mul(policy.policy_history, Variable(rewards)).mul(-1), -1))
+
+    # Update network weights
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    # Save and intialize episode history counters
+    policy.loss_history.append(loss.item())
+    policy.reward_history.append(np.sum(policy.reward_episode))
+    policy.policy_history = Variable(torch.Tensor())
+    policy.reward_episode = []
 class Policy(nn.Module):
 
     def __init__(self,dim_state,gamma=0.9):

@@ -2,7 +2,9 @@ from itertools import combinations
 import random as rnd
 from copy import deepcopy as dpc
 import definitions as defs
-
+import numpy as np
+from definitions import *
+from torch.distributions import Categorical
 DEBUG = True
 
 class Juego:
@@ -12,13 +14,14 @@ class Juego:
         self.nJug = nJug
 
         nFichas = int(self.cantFichas()/nJug)
-        types = ['random','random','random','random']
+        types = ['no random','random','random','random']
         self.jugadores = [ Jugador( i, nFichas, nMax, types[i] ) for i in range(nJug) ]
 
         self.tablero = []
         self.fichas = []
+        self.optim=optim.Adam(self.jugadores[0].policy.parameters())
 
-        self.jugar()
+        # self.jugar()
 
     def cantFichas(self) -> int:
         n = self.nMax
@@ -66,7 +69,15 @@ class Juego:
             idx %= self.nJug
             k += 1
 
+
         idx = (idx-1)%self.nJug
+        r=calcular_recompenza(idx,0.9,)
+        self.jugadores[0].policy.reward_episode.extend(r)
+
+
+
+        update_policy(self.jugadores[0].policy, self.optim)
+
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
 
@@ -83,10 +94,15 @@ class Juego:
             self.fichas.append( dpc( f ) )
             self.jugadores[jug].agregarFicha( f )
             #if DEBUG:print( f'{i:d}: {f}' )
+    def reset(self):
+         self.tablero = []
+         self.fichas = []
+         for i in range(len(self.jugadores)):
+            self.jugadores[i].fichas=[]
 
     def printJugadores(self):
         for j in self.jugadores: print(j)
-        print()
+
 
     def printTablero(self):
         s = f'Tablero:\n\t'
@@ -136,11 +152,50 @@ class Jugador:
 
         return tablero, ficha, len( self.fichas ) == 0, ficha is None
 
-    def jugar( self, tablero, fichas=[] ) :
+    def jugar( self, tablero, fichas=[],encoder_to_fichas=None,encoder_number=None) :
         if self.typeAgent == 'random': return self.jugarRandom( tablero )
         else :
             # Código para Policy Gradient
-            pass
+            state=encoder_to_fichas.encode(tablero)
+            for ficha in fichas:
+                state.extend(encoder_to_fichas.encode(ficha))
+            nJug1, nJug2 = tablero[0].n1, tablero[-1].n2
+            state.extend(encoder_number.encode([nJug1,nJug2]))
+            state = np.array(state)
+            # state = torch.from_numpy(state).type(torch.FloatTensor)
+            state = self.policy(Variable(state))
+            c = Categorical(state)
+            action = c.sample()
+
+            # Add log probability of our chosen action to our history
+
+            if self.policy.policy_history.dim() != 0:
+                self.policy.policy_history = torch.cat([self.policy.policy_history, c.log_prob(action)])
+            else:
+                self.policy.policy_history = (c.log_prob(action))
+
+            nJug1, nJug2 = tablero[0].n1, tablero[-1].n2
+
+            # Asumiendo que devuelve un vector de 28X2 con 1 en las fichas que toene el numero nJug1 o el nJug2
+            fichas_posibles=np.array(encoder_number.encode([nJug1, nJug2]))
+            idx1, idx2 = False, False
+            if fichas_posibles[action]!=1:
+                ficha=None
+            else:
+
+
+
+            if ficha is not None:
+                self.fichas.remove( ficha )
+                if idx1:
+                    if ficha.n2 == nJug1: tablero = [ficha] + tablero
+                    else : tablero = [ficha.inv()] + tablero
+                else :
+                    if ficha.n1 == nJug2: tablero = tablero + [ficha]
+                    else : tablero = tablero + [ficha.inv()]
+
+            return
+
 
 class Ficha:
     def __init__(self, n1:int, n2:int):
@@ -177,5 +232,3 @@ class Encoder:
         for i,ce in enumerate(codeElements) : 
             if ce == 1 : e.append( self.elements[i] )
         return e
-
-j = Juego(6,4)
