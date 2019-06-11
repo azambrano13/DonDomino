@@ -14,6 +14,7 @@ import numpy as np
 import random
 from copy import deepcopy
 from torch.autograd import Variable
+
 def calcular_recompenza(quien_gano,LAMBDA,jugadas_invalidas):
     veces=len(jugadas_invalidas)
     recompenzas=[]

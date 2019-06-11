@@ -74,13 +74,15 @@ class Juego:
         idx = (idx-1)%self.nJug
         # r=calcular_recompenza(idx,0.9,)
         # self.jugadores[0].policy.reward_episode.extend(r)
-
+        self.rewards = dpc( self.jugadores[0].policy.reward_episode )
 
 
         update_policy(self.jugadores[0].policy, self.optim)
 
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
+
+        return self.rewards
 
     def repartir(self):
         numeros = range(self.nMax+1)
@@ -95,6 +97,7 @@ class Juego:
             self.fichas.append( dpc( f ) )
             self.jugadores[jug].agregarFicha( f )
             #if DEBUG:print( f'{i:d}: {f}' )
+    
     def reset(self):
          self.tablero = []
          self.fichas = []
@@ -221,13 +224,13 @@ class Jugador:
                     tengo = True
                     break
 
-            if not tengo: reward -= 10
+            if not tengo: reward -= 7
             if int(lado) == 0:
                 if nJug1 in ficha_jugada:pass
-                else: reward -= 1
+                else: reward -= 3
             else:
                 if nJug2 in ficha_jugada:pass
-                else: reward -= 1
+                else: reward -= 3
 
 
             # Add log probability of our chosen action to our history
