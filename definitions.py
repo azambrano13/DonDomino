@@ -70,6 +70,7 @@ def update_policy(policy,optimizer):
     policy.reward_history.append(np.sum(policy.reward_episode))
     policy.policy_history = Variable(torch.Tensor())
     policy.reward_episode = []
+
 class Policy(nn.Module):
 
     def __init__(self,dim_state,gamma=0.9):

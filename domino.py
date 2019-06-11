@@ -157,7 +157,7 @@ class Jugador:
 
         return tablero, ficha, len( self.fichas ) == 0, ficha is None
 
-    def jugar( self, tablero, fichas=[],encoder_to_fichas=None,encoder_number=None) :
+    def jugar( self, tablero, fichas=[], encoder_to_fichas=None,encoder_number=None) :
 
         if self.typeAgent == 'random': return self.jugarRandom( tablero )
         else :
@@ -213,7 +213,8 @@ class Jugador:
             #             reward-=10
 
             c = Categorical(state)
-            action = c.sample()
+            action = torch.tensor( [c.sample().item()] )
+
             lado = action// 28
             fic = np.zeros(28)
             fic[action%28] = 1
@@ -237,17 +238,27 @@ class Jugador:
             # Add log probability of our chosen action to our history
 
             if len(self.policy.policy_history) != 0:
-                self.policy.policy_history = torch.cat([self.policy.policy_history, c.log_prob(action)])
+                self.policy.policy_history = torch.cat([self.policy.policy_history, torch.tensor([c.log_prob(action)])])
                 self.policy.reward_episode.append(reward)
             else:
-                self.policy.policy_history = (c.log_prob(action))
+                self.policy.policy_history =(c.log_prob(action))
                 self.policy.reward_episode.append(reward)
 
             if reward < 0:
-                return tablero, ficha_jugada, True, ficha_jugada is None
+                for f in self.fichas:
+                    if nJug1 in f: ficha_jugada, idx1 = f, True
+                    if nJug2 in f: ficha_jugada, idx2 = f, True
+                    if idx1 or idx2: break
 
-            self.fichas.remove(ficha_jugada)
-            if lado == 0:
+                action = torch.tensor( [np.argmax(encoder_to_fichas.encode([ficha_jugada]))] )
+                log=c.log_prob(action)
+                numpy_history = self.policy.policy_history
+                print(self.policy.policy_history)
+                self.policy.policy_history = torch.cat((self.policy.policy_history,log))
+                self.policy.reward_episode.append(0)
+
+            self.fichas.remove(ficha)
+            if idx1:
                 if ficha.n2 == nJug1:
                     tablero = [ficha] + tablero
                 else:
