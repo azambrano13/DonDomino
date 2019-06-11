@@ -5,7 +5,8 @@ import definitions as defs
 import numpy as np
 from definitions import *
 from torch.distributions import Categorical
-DEBUG = F
+
+DEBUG = False
 
 class Juego:
     def __init__(self, nMax:int, nJug:int) :
@@ -77,7 +78,7 @@ class Juego:
         self.rewards = dpc( self.jugadores[0].policy.reward_episode )
 
 
-        update_policy(self.jugadores[0].policy, self.optim)
+        if len(self.rewards) > 0 : update_policy(self.jugadores[0].policy, self.optim)
 
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
@@ -224,13 +225,13 @@ class Jugador:
                     tengo = True
                     break
 
-            if not tengo: reward -= 7
+            if not tengo: reward -= 100
             if int(lado) == 0:
                 if nJug1 in ficha_jugada:pass
-                else: reward -= 3
+                else: reward -= 10
             else:
                 if nJug2 in ficha_jugada:pass
-                else: reward -= 3
+                else: reward -= 10
 
 
             # Add log probability of our chosen action to our history
