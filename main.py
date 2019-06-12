@@ -2,14 +2,14 @@ from domino import *
 import definitions
 import matplotlib.pyplot as plt
 
-EPISODES = 10
+EPISODES = 10000
 
 juego = Juego(6,4)
 
 E = []
 R = []
 for episode in range(EPISODES):
-    print(f'Partida {episode:d}...')
+    print(f'Partida {episode+1:d}/{EPISODES:d}...')
     rewards = juego.jugar()
 
     juego.reset()
@@ -24,6 +24,7 @@ plt.ylabel("Rewards")
 
 
 plt.figure()
-plt.hist(R )
+plt.hist( R )
 plt.xlabel("Rewards")
+
 plt.show()

@@ -55,7 +55,7 @@ def update_policy(policy,optimizer):
 
     # Scale rewards
     rewards = torch.FloatTensor(rewards)
-    if len(rewards) > 1 : rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+    # if len(rewards) > 1 : rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
 
     # Calculate loss
     loss = (torch.sum(torch.mul(policy.policy_history, Variable(rewards)).mul(-1), -1))
