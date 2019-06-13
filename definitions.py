@@ -92,10 +92,15 @@ class Policy(nn.Module):
 
     def forward(self, x):
             model = torch.nn.Sequential(
-                self.l1,
-                nn.Dropout(p=0.6),
+                nn.Linear(self.state_space, 128, bias=False),
                 nn.ReLU(),
-                self.l2,
+
+                nn.Linear(128, self.action_space, bias=False),
+                # nn.ReLU(),
+
+                nn.Dropout(p=0.6),
+
+                # nn.Linear(64, self.action_space, bias=True),
                 nn.Softmax(dim=-1)
             )
             return model(x)

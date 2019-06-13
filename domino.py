@@ -21,6 +21,7 @@ class Juego:
         self.tablero = []
         self.fichas = []
         self.optim=optim.Adam(self.jugadores[0].policy.parameters())
+        self.policy = defs.Policy(147)
 
         # self.jugar()
 
@@ -56,6 +57,88 @@ class Juego:
 
         while not acabar:
             self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugar( self.tablero, fichas ,self.encFichas,self.encNum)
+
+
+
+            ################################################################AQUÍ JUEGA LA POLICY
+            nJug1, nJug2 = self.tablero[0].n1, self.tablero[-1].n2
+            fichas_temp= [fichas[idx],fichas[(idx+1)%4],fichas[(idx+2)%4],fichas[(idx+3)%4]]
+
+            ## Código para Policy Gradient
+            # Crear Estado
+            state = self.encFichas.encode(self.tablero)
+            for ficha in fichas_temp: state.extend(self.encFichas.encode(ficha))
+            state.extend(self.encNnumber.encode([nJug1, nJug2]))
+            state = np.array(state)
+
+            # Evaluar Estado
+            state = self.policy(Variable(torch.tensor(state, dtype=torch.float)))
+
+            c = Categorical(state)
+            action = torch.tensor([c.sample().item()], dtype=torch.int)
+
+            lado = action // 28
+            fic = np.zeros(28)
+            fic[action % 28] = 1
+            ficha_jugada = encoder_to_fichas.decode(fic)[0]
+
+            tengo = False
+            for ficha in self.fichas:
+                tengo = ficha == ficha_jugada
+                if tengo: break
+
+            reward = 0
+            if not tengo: reward -= 30
+
+            print(f'Tablero: {tablero} ')
+            print(f'Mis Fichas: {self.fichas}')
+            print(f'\t Tratar de jugar ficha {ficha_jugada} - Reward: {reward:d}')
+
+            idx1, idx2 = nJug1 in ficha, nJug2 in ficha_jugada
+
+            '''if int(lado) == 0:
+                if nJug1 in ficha_jugada:pass
+                else: reward -= 10
+            else:
+                if nJug2 in ficha_jugada:pass
+                else: reward -= 10'''
+
+            # Add log probability of our chosen action to our history
+            if len(self.policy.policy_history) != 0:
+                self.policy.policy_history = torch.cat([self.policy.policy_history, torch.Tensor([c.log_prob(action)])])
+                self.policy.reward_episode.append(reward)
+            else:
+                self.policy.policy_history = (c.log_prob(action))
+                self.policy.reward_episode.append(reward)
+
+            if reward < 0:
+                return tablero, ficha_jugada, True, ficha_jugada is None
+                '''for f in self.fichas:
+                    if nJug1 in f: ficha_jugada, idx1 = f, True
+                    if nJug2 in f: ficha_jugada, idx2 = f, True
+                    if idx1 or idx2: break
+
+                action = torch.Tensor( [np.argmax(encoder_to_fichas.encode([ficha_jugada]))] )
+                log=c.log_prob(action)
+                numpy_history = self.policy.policy_history
+                # print(self.policy.policy_history)
+                self.policy.policy_history = torch.cat((self.policy.policy_history,log))
+                self.policy.reward_episode.append(0)'''
+
+            if idx1 or idx2:
+                self.fichas.remove(ficha)
+                if idx1:
+                    if ficha.n2 == nJug1:
+                        tablero = [ficha] + tablero
+                    else:
+                        tablero = [ficha.inv()] + tablero
+                else:
+                    if ficha.n1 == nJug2:
+                        tablero = tablero + [ficha]
+                    else:
+                        tablero = tablero + [ficha.inv()]
+
+            ##############################################################################################
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
@@ -118,7 +201,7 @@ class Jugador:
         self.nMax = nMax
         
         self.typeAgent = typeAgent
-        self.policy = None if typeAgent == 'random' else defs.Policy( 147 )
+
 
     def __str__(self):
         s = f'Jugador {self.id:d}:\n\t'
