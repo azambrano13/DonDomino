@@ -17,15 +17,17 @@ from torch.autograd import Variable
 
 def update_policy_supervised( policy, optimizer, states, actions ) :
     
-    optimizer.zero_grad()
-    
-    output = policy( states )
-    loss = nn.CrossEntropyLoss( output, actions )
-    
-    loss.backward()
-    optimizer.step()
+    for _ in range(10000):
+        optimizer.zero_grad()
+        
+        output = policy( states )
+        lossFcn = nn.CrossEntropyLoss( )
+        loss = lossFcn( output, actions )
+        
+        loss.backward()
+        optimizer.step()
 
-    policy.loss_history.append( loss.item() )
+        policy.loss_history.append( loss.item())
 
 
 def update_policy( policy, optimizer ):

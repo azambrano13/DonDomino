@@ -16,7 +16,7 @@ class Juego :
         self.nJug = nJug
 
         nFichas = int(self.cantFichas()/nJug)
-        types = ['no random','random','random','random']
+        types = ['random','random','random','random']
         self.jugadores = [ Jugador( i, nFichas, nMax, types[i] ) for i in range(nJug) ]
 
         self.tablero = []
@@ -51,12 +51,10 @@ class Juego :
     def printJugadores(self):
         for j in self.jugadores: print(j)
 
-
     def printTablero(self):
         s = f'Tablero:\n\t'
         for ficha in self.tablero: s += str(ficha) + "  "
         print(s+"\n")
-
 
     def jugar(self):
         self.repartir()
@@ -96,13 +94,22 @@ class Juego :
 
         self.rewards = dpc( self.policy.reward_episode )
 
-        if len(self.rewards) > 0 : 
-            update_policy(self.policy, self.optim)
+        # if len(self.rewards) > 0 : update_policy(self.policy, self.optim)
+
+        states, actions = [], []
+        for jugador in self.jugadores : 
+            states.extend( jugador.states )
+            actions.extend( jugador.actions )
+        
+        states = torch.cat( states, dim=1 ).transpose_(0,1)
+        actions = torch.cat( actions )
+        
+        if len(states) > 0 : update_policy_supervised(self.policy, self.optim, states, actions )
 
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
 
-        return self.rewards
+        return self.policy.loss_history
         
 class Jugador :
 
@@ -112,6 +119,9 @@ class Jugador :
         self.nMax = nMax
         
         self.typeAgent = typeAgent
+
+        self.states = []
+        self.actions = []
 
     def __str__(self):
         s = f'Jugador {self.id:d}:\n\t'
@@ -170,7 +180,7 @@ class Jugador :
         ficha = None  
 
         ## Random Player
-        if self.typeAgent == 'random' : 
+        if True : 
 
             for f in self.fichas:
                 if nJug1 in f : ficha, idx1 = f, True
@@ -185,7 +195,21 @@ class Jugador :
                 else :
                     if ficha.n1 == nJug2: tablero = tablero + [ficha]
                     else : tablero = tablero + [ficha.inv()] 
-                     
+
+            action = -1                     
+            if ficha is None : action = torch.tensor( [2*juego.cantFichas()] )
+            else : action = torch.tensor( [ np.argmax(encoder_to_fichas.encode( [ficha] ) ) ] )
+            self.actions.append( action )
+
+            state = []
+            for f in fichas: state.extend( encoder_to_fichas.encode( f ) )
+            state.extend( encoder_number.encode( [nJug1, nJug2] ) )
+            state = np.array( state )
+            state = torch.tensor( state, dtype=torch.float )
+            state = state.reshape( [-1,1] )
+            self.states.append( state )
+            
+
             return tablero, ficha, len( self.fichas ) == 0, ficha is None
 
         ## Código para Policy Gradient

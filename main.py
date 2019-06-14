@@ -2,21 +2,21 @@ from domino import *
 import definitions
 import matplotlib.pyplot as plt
 
-EPISODES = 10
+EPISODES = 1
 
 juego = Juego(6,4)
 
 E = []
 R = []
+loss = []
 for episode in range(EPISODES):
     print(f'Partida {episode+1:d}/{EPISODES:d}...')
-    rewards = juego.jugar()
+    loss.extend( juego.jugar() )
 
     juego.reset()
 
-    R.extend( rewards )
-    E.extend( [episode]*len(rewards) )
 
+'''
 plt.figure()
 plt.scatter( E, R )
 plt.xlabel("Episodes")
@@ -25,6 +25,10 @@ plt.ylabel("Rewards")
 
 plt.figure()
 plt.hist( R )
-plt.xlabel("Rewards")
+plt.xlabel("Rewards")'''
+
+plt.figure()
+plt.plot( loss )
+
 
 plt.show()
