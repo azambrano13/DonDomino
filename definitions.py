@@ -15,36 +15,20 @@ import random
 from copy import deepcopy
 from torch.autograd import Variable
 
-def calcular_recompenza(quien_gano,LAMBDA,jugadas_invalidas):
-    veces=len(jugadas_invalidas)
-    recompenzas=[]
-    if quien_gano==0:
-        base=np.array([LAMBDA]*veces)
-        exponente=np.array(range(len(base)))
-        recompenzas=np.power(base,exponente)*1
-        recompenzas=list(recompenzas)
-        recompenzas.reverse()
-    else:
-        base = np.array([LAMBDA] * veces)
-        exponente = np.array(range(len(base)))
-        recompenzas = np.power(base, exponente) * -1
-        recompenzas = list(recompenzas)
-        recompenzas.reverse()
-    # if quien_gano==0:
-    #     base = np.array([0] * veces)
-    #     base[-1]=1
-    #     recompenzas=base
-    # else:
-    #     base = np.array([0] * veces)
-    #     base[-1] = -1
-    #     recompenzas = base
-    recompenzas=np.array(recompenzas)
-    recompenzas[jugadas_invalidas]=-10
+def update_policy_supervised( policy, optimizer, states, actions ) :
+    
+    optimizer.zero_grad()
+    
+    output = policy( states )
+    loss = nn.CrossEntropyLoss( output, actions )
+    
+    loss.backward()
+    optimizer.step()
 
-    return recompenzas
+    policy.loss_history.append( loss.item() )
 
 
-def update_policy(policy,optimizer):
+def update_policy( policy, optimizer ):
     R = 0
     rewards = []
 
@@ -73,10 +57,10 @@ def update_policy(policy,optimizer):
 
 class Policy(nn.Module):
 
-    def __init__(self,dim_state,gamma=0.9):
+    def __init__(self,dim_state,dim_action,gamma=0.9):
         super(Policy, self).__init__()
         self.state_space = dim_state
-        self.action_space = 28*2
+        self.action_space = dim_action
 
         self.l1 = nn.Linear(self.state_space, 128, bias=False)
         self.l2 = nn.Linear(128, self.action_space, bias=False)

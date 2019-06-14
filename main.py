@@ -2,7 +2,7 @@ from domino import *
 import definitions
 import matplotlib.pyplot as plt
 
-EPISODES = 10000
+EPISODES = 10
 
 juego = Juego(6,4)
 
