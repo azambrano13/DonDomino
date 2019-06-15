@@ -15,6 +15,7 @@ for episode in range(EPISODES):
 
     juego.reset()
 
+juego.policy.saveModel( 'test' )
 
 '''
 plt.figure()
@@ -29,6 +30,5 @@ plt.xlabel("Rewards")'''
 
 plt.figure()
 plt.plot( juego.policy.loss_history )
-
 
 plt.show()

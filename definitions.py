@@ -5,7 +5,8 @@ import random as rnd
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.contrib import eager as tfe
+import tensorflow.contrib.eager as tfe
+from tensorflow.python.client import device_lib
 
 '''
 def update_policy( policy, optimizer ):
@@ -36,9 +37,13 @@ def update_policy( policy, optimizer ):
     policy.reward_episode = []
 '''
 
+def getGPUs():
+    devices = device_lib.list_local_devices()
+    return [ device.name for device in devices if device.device_type == 'GPU']
+
 class Policy :
 
-    def __init__(self,dim_state,dim_action,gamma=0.9):
+    def __init__( self, dim_state, dim_action, gamma=0.9, load_name=None ) :
         tf.enable_eager_execution()
         tf.logging.set_verbosity(tf.logging.ERROR)
 
@@ -52,11 +57,19 @@ class Policy :
 
         self.model = keras.Sequential( [ 
             keras.layers.Dense( 128, activation=tf.nn.relu, use_bias=False, input_shape=( self.state_space, ) ),
+            keras.layers.Dense( 64, activation=tf.nn.relu, use_bias=False ),
             keras.layers.Dropout( rate=0.6 ),
             keras.layers.Dense( self.action_space, activation=tf.nn.softmax )
         ] )
+        self.model.summary()
+
+        if load_name is not None : self.model = keras.models.load_model( load_name )
 
         self.optimizer = tf.train.AdamOptimizer( )
+
+        self.device = "CPU:0"
+        gpus = getGPUs( )
+        if gpus : self.device = gpus[0]
 
         # Episode policy and reward history
         # self.policy_history = Variable(torch.Tensor())
@@ -70,16 +83,18 @@ class Policy :
 
         epochs = 5
         for e in range(epochs) :
-            # Calculate Loss
-            with tf.GradientTape() as tape:
-                actions_ = self.model( states )
-                loss = tf.losses.sparse_softmax_cross_entropy( labels=actions, logits=actions_ )
-                grads = tape.gradient( loss, self.model.trainable_variables )
+            with tf.device( self.device ) :
+                with tf.GradientTape() as tape:
+                    actions_ = self.model( states )
+                    loss = tf.losses.sparse_softmax_cross_entropy( labels=actions, logits=actions_ )
+                    grads = tape.gradient( loss, self.model.trainable_variables )
+                del tape 
 
-            self.optimizer.apply_gradients( zip( grads, self.model.trainable_variables ), self.global_step )
+                self.optimizer.apply_gradients( zip( grads, self.model.trainable_variables ), self.global_step )
             
             self.loss_history.append( loss.numpy() )
 
-            print( f'\tEpoch {e+1:d}/{epochs}... | Loss: {loss:.3f}' )        
+            print( f'\tEpoch {e+1:d}/{epochs}... | Loss: {loss:.3f}' )   
 
-
+    def saveModel( self, name ) :
+        self.model.save('models/' + name + '.h5')
