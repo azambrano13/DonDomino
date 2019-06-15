@@ -3,8 +3,6 @@ import random as rnd
 from copy import deepcopy as dpc
 import definitions as defs
 import numpy as np
-from definitions import *
-from torch.distributions import Categorical
 
 DEBUG = False
 
@@ -24,7 +22,6 @@ class Juego :
 
         cantFichas = self.cantFichas()
         self.policy = defs.Policy( cantFichas*nJug + nMax + 1, 2*cantFichas + 1 )
-        self.optim = optim.Adam( self.policy.parameters() )
 
     def cantFichas(self) -> int:
         n = self.nMax
@@ -92,7 +89,7 @@ class Juego :
 
         idx = (idx-1)%self.nJug
 
-        self.rewards = dpc( self.policy.reward_episode )
+        # self.rewards = dpc( self.policy.reward_episode )
 
         # if len(self.rewards) > 0 : update_policy(self.policy, self.optim)
 
@@ -101,10 +98,8 @@ class Juego :
             states.extend( jugador.states )
             actions.extend( jugador.actions )
         
-        states = torch.cat( states, dim=1 ).transpose_(0,1)
-        actions = torch.cat( actions )
-        
-        if len(states) > 0 : update_policy_supervised(self.policy, self.optim, states, actions )
+        if len(states) > 0 : 
+            self.policy.update_policy_supervised( np.array(states,dtype=np.float32), np.array(actions) )
 
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
@@ -197,18 +192,17 @@ class Jugador :
                     else : tablero = tablero + [ficha.inv()] 
 
             action = -1                     
-            if ficha is None : action = torch.tensor( [2*juego.cantFichas()] )
-            else : action = torch.tensor( [ np.argmax(encoder_to_fichas.encode( [ficha] ) ) ] )
+            if ficha is None : action = [ 2*juego.cantFichas() ]
+            else : action = [ np.argmax(encoder_to_fichas.encode( [ficha] ) ) ]
             self.actions.append( action )
 
             state = []
             for f in fichas: state.extend( encoder_to_fichas.encode( f ) )
             state.extend( encoder_number.encode( [nJug1, nJug2] ) )
             state = np.array( state )
-            state = torch.tensor( state, dtype=torch.float )
-            state = state.reshape( [-1,1] )
+            # state = torch.tensor( state, dtype=torch.float )
+            # state = state.reshape( [-1,1] )
             self.states.append( state )
-            
 
             return tablero, ficha, len( self.fichas ) == 0, ficha is None
 
@@ -222,10 +216,10 @@ class Jugador :
             state = np.array( state )
 
             # Evaluar Estado
-            state = juego.policy( Variable( torch.tensor( state, dtype=torch.float ) ) )
+            # state = juego.policy( Variable( torch.tensor( state, dtype=torch.float ) ) )
 
-            c = Categorical(state)
-            action = torch.tensor( [ c.sample().item() ], dtype=torch.int )
+            # c = Categorical(state)
+            # action = torch.tensor( [ c.sample().item() ], dtype=torch.int )
 
             lado = action // 28
             fic = np.zeros( 28 )
@@ -256,10 +250,10 @@ class Jugador :
 
             # Add log probability of our chosen action to our history
             if len( juego.policy.policy_history ) != 0:
-                juego.policy.policy_history = torch.cat( [juego.policy.policy_history, torch.Tensor( [c.log_prob(action)] ) ] )
+                # juego.policy.policy_history = torch.cat( [juego.policy.policy_history, torch.Tensor( [c.log_prob(action)] ) ] )
                 juego.policy.reward_episode.append(reward)
             else:
-                juego.policy.policy_history = ( c.log_prob(action) )
+                # juego.policy.policy_history = ( c.log_prob(action) )
                 juego.policy.reward_episode.append( reward )
 
             if reward < 0:
