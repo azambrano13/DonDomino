@@ -14,7 +14,7 @@ class Juego :
         self.nJug = nJug
 
         nFichas = int(self.cantFichas()/nJug)
-        types = ['random','random','random','random']
+        types = [0,0,0,0]
         self.jugadores = [ Jugador( i, nFichas, nMax, types[i] ) for i in range(nJug) ]
 
         self.tablero = []
@@ -71,7 +71,7 @@ class Juego :
         self.encNum = Encoder( range(self.nMax+1) )
 
         while not acabar:
-            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugar( self.tablero, self )
+            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero, self )
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
@@ -126,30 +126,7 @@ class Jugador :
     def agregarFicha( self, ficha ):
         self.fichas.append( ficha )
 
-    def jugarRandom( self, tablero ):
-
-        ficha = None
-        nJug1, nJug2 = tablero[0].n1, tablero[-1].n2
-        idx1, idx2 = False, False
-
-        for f in self.fichas:
-            if nJug1 in f : ficha, idx1 = f, True
-            if nJug2 in f : ficha, idx2 = f, True
-            if idx1 or idx2: break
-
-        if ficha is not None:
-            self.fichas.remove( ficha )
-            if idx1: 
-                if ficha.n2 == nJug1: tablero = [ficha] + tablero
-                else : tablero = [ficha.inv()] + tablero
-            else :
-                if ficha.n1 == nJug2: tablero = tablero + [ficha]
-                else : tablero = tablero + [ficha.inv()]
-
-        return tablero, ficha, len( self.fichas ) == 0, ficha is None
-
-    def jugar( self, tablero, juego ) :
-
+    def jugarRandom( self, tablero, juego ):
         # Al inicio siempre se juega el [6|6]
         if not tablero:
             ficha = Ficha(self.nMax, self.nMax)
@@ -159,8 +136,8 @@ class Jugador :
             return tablero, ficha, len(self.fichas) == 0, ficha is None
 
         # Fichas de todos los jugadores
-        fichas = [ juego.jugadores[ (self.id + i)%juego.nJug ].fichas for i in range( juego.nJug ) ]
-        
+        fichas = [juego.jugadores[(self.id + i) % juego.nJug].fichas for i in range(juego.nJug)]
+
         # Encoders
         encoder_to_fichas = juego.encFichas
         encoder_number = juego.encNum
@@ -172,46 +149,57 @@ class Jugador :
         idx1, idx2 = False, False
 
         # Ficha a poner
-        ficha = None  
+        ficha = None
+
+        for f in self.fichas:
+            if nJug1 in f: ficha, idx1 = f, True
+            if nJug2 in f: ficha, idx2 = f, True
+            if idx1 or idx2: break
+
+        if ficha is not None:
+            self.fichas.remove(ficha)
+            if idx1:
+                if ficha.n2 == nJug1:
+                    tablero = [ficha] + tablero
+                else:
+                    tablero = [ficha.inv()] + tablero
+            else:
+                if ficha.n1 == nJug2:
+                    tablero = tablero + [ficha]
+                else:
+                    tablero = tablero + [ficha.inv()]
+
+        action = -1
+        if ficha is None:
+            action = [2 * juego.cantFichas()]
+        else:
+            action = [np.argmax(encoder_to_fichas.encode([ficha]))]
+        self.actions.append(action)
+
+        state = []
+        for f in fichas: state.extend(encoder_to_fichas.encode(f))
+        state.extend(encoder_number.encode([nJug1, nJug2]))
+        state = np.array(state)
+        # state = torch.tensor( state, dtype=torch.float )
+        # state = state.reshape( [-1,1] )
+        self.states.append(state)
+
+        return tablero, ficha, len(self.fichas) == 0, ficha is None
+
+    def jugar( self, tablero, juego ) :
 
         ## Random Player
-        if True : 
+        if self.typeAgent==0 :
 
-            for f in self.fichas:
-                if nJug1 in f : ficha, idx1 = f, True
-                if nJug2 in f : ficha, idx2 = f, True
-                if idx1 or idx2: break
+            tablero, ficha, acabar, pasar = self.jugarRandom(self, tablero, juego)
 
-            if ficha is not None:
-                self.fichas.remove( ficha )
-                if idx1: 
-                    if ficha.n2 == nJug1: tablero = [ficha] + tablero
-                    else : tablero = [ficha.inv()] + tablero
-                else :
-                    if ficha.n1 == nJug2: tablero = tablero + [ficha]
-                    else : tablero = tablero + [ficha.inv()] 
-
-            action = -1                     
-            if ficha is None : action = [ 2*juego.cantFichas() ]
-            else : action = [ np.argmax(encoder_to_fichas.encode( [ficha] ) ) ]
-            self.actions.append( action )
-
-            state = []
-            for f in fichas: state.extend( encoder_to_fichas.encode( f ) )
-            state.extend( encoder_number.encode( [nJug1, nJug2] ) )
-            state = np.array( state )
-            # state = torch.tensor( state, dtype=torch.float )
-            # state = state.reshape( [-1,1] )
-            self.states.append( state )
-
-            return tablero, ficha, len( self.fichas ) == 0, ficha is None
 
         ## Código para Policy Gradient
-        else :    
+        elif self.typeAgent==1 :
             # Crear Estado
             # state = encoder_to_fichas.encode( tablero )
             state = []
-            for ficha in fichas: state.extend( encoder_to_fichas.encode( ficha ) )
+            for f in fichas: state.extend( encoder_to_fichas.encode( f ) )
             state.extend( encoder_number.encode( [nJug1, nJug2] ) )
             state = np.array( state )
 
@@ -219,13 +207,14 @@ class Jugador :
             # state = juego.policy( Variable( torch.tensor( state, dtype=torch.float ) ) )
 
             # c = Categorical(state)
-            # action = torch.tensor( [ c.sample().item() ], dtype=torch.int )
+            #action = torch.tensor( [ c.sample().item() ], dtype=torch.int )
 
             lado = action // 28
             fic = np.zeros( 28 )
             fic[ action%28 ] = 1
             ficha_jugada = encoder_to_fichas.decode( fic )[0]
 
+            #Verifico que tenga la ficha al asignar recompensa
             tengo = False
             for ficha in self.fichas:
                 tengo = ficha == ficha_jugada
