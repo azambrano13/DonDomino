@@ -1,10 +1,12 @@
 from domino import *
-import definitions
+from definitions import *
 import matplotlib.pyplot as plt
 
 EPISODES = 1000
 
-juego = Juego(6,4)
+pMax=6
+jug=4
+juego = Juego(pMax,jug)
 
 E = []
 R = []

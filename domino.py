@@ -1,7 +1,7 @@
 from itertools import combinations 
 import random as rnd
 from copy import deepcopy as dpc
-import definitions as defs
+from definitions import *
 import numpy as np
 
 DEBUG = False
@@ -21,7 +21,11 @@ class Juego :
         self.fichas = []
 
         cantFichas = self.cantFichas()
-        self.policy = defs.Policy( cantFichas*nJug + nMax + 1, 2*cantFichas + 1 )
+        # Tamaño del vector de estados y acciones
+        actionSize = cantFichas * 2 + 1
+        stateSize = cantFichas * nJug + nMax + 1
+        # Crea al agente
+        self.agent = DQNAgent(stateSize, actionSize)
 
     def cantFichas(self) -> int:
         n = self.nMax
@@ -71,7 +75,10 @@ class Juego :
         self.encNum = Encoder( range(self.nMax+1) )
 
         while not acabar:
-            self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero, self )
+            if self.jugadores[idx]==0:
+                self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero, self )
+            elif self.jugadores[idx]==1:
+                self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRL(self.tablero, self)
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
@@ -80,7 +87,7 @@ class Juego :
 
             if nPas == self.nJug: acabar = True
 
-            if DEBUG : self.printJugadores() 
+            if DEBUG : self.printJugadores()
             if DEBUG : self.printTablero()
 
             idx += 1
@@ -93,18 +100,26 @@ class Juego :
 
         # if len(self.rewards) > 0 : update_policy(self.policy, self.optim)
 
-        states, actions = [], []
+        states, actions, nextStates, done = [], [], [], []
         for jugador in self.jugadores : 
             states.extend( jugador.states )
             actions.extend( jugador.actions )
-        
-        if len(states) > 0 : 
+            nextStates.extend( jugador.nextStates )
+            nextStates.extend([0])
+            done.extend((np.zeros(len(jugador.nextStates))))
+            done.extend([1])
+        if len(states)>500:
+            self.agent.replay(256)
+
+        #train=np.concatenate(states,actions,axis=1)
+
+        '''if len(states) > 0 : 
             self.policy.update_policy_supervised( np.array(states,dtype=np.float32), np.array(actions) )
 
         if DEBUG and nPas < self.nJug: print(f'Se acabó el Juego, ganó {idx:d}!!!')
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
 
-        return self.policy.loss_history
+        return self.policy.loss_history'''
         
 class Jugador :
 
@@ -117,6 +132,8 @@ class Jugador :
 
         self.states = []
         self.actions = []
+        self.nextStates = []
+        self.done=[]
 
     def __str__(self):
         s = f'Jugador {self.id:d}:\n\t'
@@ -177,16 +194,27 @@ class Jugador :
         self.actions.append(action)
 
         state = []
-        for f in fichas: state.extend(encoder_to_fichas.encode(f))
-        state.extend(encoder_number.encode([nJug1, nJug2]))
-        state = np.array(state)
-        # state = torch.tensor( state, dtype=torch.float )
-        # state = state.reshape( [-1,1] )
-        self.states.append(state)
+        #Concatena estado siguiente después de que el estado original sea mayor a 1
+        if len(self.states) > 0:
+            for f in fichas: state.extend(encoder_to_fichas.encode(f))
+            state.extend(encoder_number.encode([nJug1, nJug2]))
+            state = np.array(state)
+            # state = torch.tensor( state, dtype=torch.float )
+            # state = state.reshape( [-1,1] )
+            self.nextStates.append(state)
+            self.states.append(state)
+        else:
+            for f in fichas: state.extend(encoder_to_fichas.encode(f))
+            state.extend(encoder_number.encode([nJug1, nJug2]))
+            state = np.array(state)
+            # state = torch.tensor( state, dtype=torch.float )
+            # state = state.reshape( [-1,1] )
+            self.states.append(state)
+
 
         return tablero, ficha, len(self.fichas) == 0, ficha is None
 
-    def jugar( self, tablero, juego ) :
+    def jugarRL( self, tablero, juego ) :
 
         ## Random Player
         if self.typeAgent==0 :

@@ -1,12 +1,16 @@
 import numpy as np
+import collections as cl
 from copy import deepcopy as dpc
 import matplotlib.pyplot as plt
-import random as rnd
+import random
 
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow.contrib.eager as tfe
 from tensorflow.python.client import device_lib
+from tensorflow.keras.models import Sequential  # linear stack of layers
+from tensorflow.keras.layers import Dense, Activation, Flatten, Convolution1D, Dropout, AveragePooling1D
+from tensorflow.keras.optimizers import Adam
 
 '''
 def update_policy( policy, optimizer ):
@@ -41,60 +45,45 @@ def getGPUs():
     devices = device_lib.list_local_devices()
     return [ device.name for device in devices if device.device_type == 'GPU']
 
-class Policy :
-
-    def __init__( self, dim_state, dim_action, gamma=0.9, load_name=None ) :
-        tf.enable_eager_execution()
-        tf.logging.set_verbosity(tf.logging.ERROR)
-
-        self.state_space = dim_state
-        self.action_space = dim_action
-
-        self.gamma = gamma
-
-        self.global_step = tf.Variable(0)
-        self.loss_avg = tfe.metrics.Mean()
-
-        self.model = keras.Sequential( [ 
-            keras.layers.Dense( 128, activation=tf.nn.relu, use_bias=False, input_shape=( self.state_space, ) ),
-            keras.layers.Dense( 64, activation=tf.nn.relu, use_bias=False ),
-            keras.layers.Dropout( rate=0.6 ),
-            keras.layers.Dense( self.action_space, activation=tf.nn.softmax )
-        ] )
-        self.model.summary()
-
-        if load_name is not None : self.model = keras.models.load_model( load_name )
-
-        self.optimizer = tf.train.AdamOptimizer( )
-
-        self.device = "CPU:0"
-        gpus = getGPUs( )
-        if gpus : self.device = gpus[0]
-
-        # Episode policy and reward history
-        # self.policy_history = Variable(torch.Tensor())
-        # self.reward_episode = []
-
-        # Overall reward and loss history
-        # self.reward_history = []
-        self.loss_history = []
-
-    def update_policy_supervised( self, states, actions ) :
-
-        epochs = 5
-        for e in range(epochs) :
-            with tf.device( self.device ) :
-                with tf.GradientTape() as tape:
-                    actions_ = self.model( states )
-                    loss = tf.losses.sparse_softmax_cross_entropy( labels=actions, logits=actions_ )
-                    grads = tape.gradient( loss, self.model.trainable_variables )
-                del tape 
-
-                self.optimizer.apply_gradients( zip( grads, self.model.trainable_variables ), self.global_step )
-            
-            self.loss_history.append( loss.numpy() )
-
-            print( f'\tEpoch {e+1:d}/{epochs}... | Loss: {loss:.3f}' )   
-
+# Deep Q-learning Agent
+class DQNAgent:
+    def __init__(self, state_size, action_size):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.memory = cl.deque(maxlen=2000)
+        self.gamma = 0.95    # discount rate
+        self.epsilon = 1.0  # exploration rate
+        self.epsilon_min = 0.01
+        self.epsilon_decay = 0.995
+        self.learning_rate = 0.001
+        self.model = self._build_model()
+    def _build_model(self):
+        # Neural Net for Deep-Q learning Model
+        model = Sequential()
+        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(24, activation='relu'))
+        model.add(Dense(self.action_size, activation='linear'))
+        model.compile(loss='mse',
+                      optimizer=Adam(lr=self.learning_rate))
+        return model
+    def remember(self, state, action, reward, next_state, done):
+        self.memory.append((state, action, reward, next_state, done))
+    def act(self, state):
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0])  # returns action
+    def replay(self, batch_size):
+        minibatch = random.sample(self.memory, batch_size)
+        for state, action, reward, next_state, done in minibatch:
+            target = reward
+            if not done:
+              target = reward + self.gamma * \
+                       np.amax(self.model.predict(next_state)[0])
+            target_f = self.model.predict(state)
+            target_f[0][action] = target
+            self.model.fit(state, target_f, epochs=1, verbose=0)
+        if self.epsilon > self.epsilon_min:
+            self.epsilon *= self.epsilon_decay
     def saveModel( self, name ) :
         self.model.save('models/' + name + '.h5')
