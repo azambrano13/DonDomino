@@ -78,7 +78,7 @@ class Juego :
             if self.jugadores[idx]==0:
                 self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero, self )
             elif self.jugadores[idx]==1:
-                self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRL(self.tablero, self)
+                self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRL(self.tablero, self.agent, self)
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
@@ -100,7 +100,7 @@ class Juego :
 
         # if len(self.rewards) > 0 : update_policy(self.policy, self.optim)
 
-        states, actions, nextStates, done = [], [], [], []
+        states, actions, nextStates, rewards, done = [], [], [], [], []
         for jugador in self.jugadores : 
             states.extend( jugador.states )
             actions.extend( jugador.actions )
@@ -108,7 +108,9 @@ class Juego :
             nextStates.extend([0])
             done.extend((np.zeros(len(jugador.nextStates))))
             done.extend([1])
+            rewards.extend(jugador.rewards)
         #Se esperan ciertos juegos hasta empezar a entrenar al agente
+
         if len(states)>500:
             self.agent.replay(256)
 
@@ -134,6 +136,7 @@ class Jugador :
         self.states = []
         self.actions = []
         self.nextStates = []
+        self.rewards = []
         self.done=[]
 
     def __str__(self):
@@ -163,6 +166,24 @@ class Jugador :
         # Posibles Jugadas
         nJug1, nJug2 = tablero[0].n1, tablero[-1].n2
 
+        state = []
+        #Concatena estado siguiente después de que el estado original sea mayor a 1
+        if len(self.states) > 0:
+            for f in fichas: state.extend(encoder_to_fichas.encode(f))
+            state.extend(encoder_number.encode([nJug1, nJug2]))
+            state = np.array(state)
+            # state = torch.tensor( state, dtype=torch.float )
+            # state = state.reshape( [-1,1] )
+            self.nextStates.append(state)
+            self.states.append(state)
+        else:
+            for f in fichas: state.extend(encoder_to_fichas.encode(f))
+            state.extend(encoder_number.encode([nJug1, nJug2]))
+            state = np.array(state)
+            # state = torch.tensor( state, dtype=torch.float )
+            # state = state.reshape( [-1,1] )
+            self.states.append(state)
+
         # Lado para poner ficha
         idx1, idx2 = False, False
 
@@ -190,12 +211,39 @@ class Jugador :
         action = -1
         if ficha is None:
             action = [2 * juego.cantFichas()]
+            reward=-1
         else:
             action = [np.argmax(encoder_to_fichas.encode([ficha]))]
+            reward=1
         self.actions.append(action)
+        self.rewards.append(reward)
+
+        return tablero, ficha, len(self.fichas) == 0, ficha is None
+
+    def jugarRL( self, tablero, juego, agent ) :
+        # Al inicio siempre se juega el [6|6]
+        if not tablero:
+            ficha = Ficha(self.nMax, self.nMax)
+            self.fichas.remove(ficha)
+            tablero.append(ficha)
+
+            return tablero, ficha, len(self.fichas) == 0, ficha is None
+
+        # Fichas de todos los jugadores
+        fichas = [juego.jugadores[(self.id + i) % juego.nJug].fichas for i in range(juego.nJug)]
+
+        # Encoders
+        encoder_to_fichas = juego.encFichas
+        encoder_number = juego.encNum
+
+        # Posibles Jugadas
+        nJug1, nJug2 = tablero[0].n1, tablero[-1].n2
+
+        # Lado para poner ficha
+        idx1, idx2 = False, False
 
         state = []
-        #Concatena estado siguiente después de que el estado original sea mayor a 1
+        # Concatena estado siguiente después de que el estado original sea mayor a 1
         if len(self.states) > 0:
             for f in fichas: state.extend(encoder_to_fichas.encode(f))
             state.extend(encoder_number.encode([nJug1, nJug2]))
@@ -212,98 +260,51 @@ class Jugador :
             # state = state.reshape( [-1,1] )
             self.states.append(state)
 
-
-        return tablero, ficha, len(self.fichas) == 0, ficha is None
-
-    def jugarRL( self, tablero, juego ) :
-
-        ## Random Player
-        if self.typeAgent==0 :
-
-            tablero, ficha, acabar, pasar = self.jugarRandom(self, tablero, juego)
-
-
-        ## Código para Policy Gradient
-        elif self.typeAgent==1 :
-            # Crear Estado
-            # state = encoder_to_fichas.encode( tablero )
-            state = []
-            for f in fichas: state.extend( encoder_to_fichas.encode( f ) )
-            state.extend( encoder_number.encode( [nJug1, nJug2] ) )
-            state = np.array( state )
-
-            # Evaluar Estado
-            # state = juego.policy( Variable( torch.tensor( state, dtype=torch.float ) ) )
-
-            # c = Categorical(state)
-            #action = torch.tensor( [ c.sample().item() ], dtype=torch.int )
-
+        action = agent.act(state)
+        if action==56:
+            reward=-1
+        else:
             lado = action // 28
-            fic = np.zeros( 28 )
-            fic[ action%28 ] = 1
-            ficha_jugada = encoder_to_fichas.decode( fic )[0]
+            if lado==0: idx1=True
+            if lado==1: idx2= True
+            fic = np.zeros(28)
+            fic[action % 28] = 1
+            ficha_jugada = encoder_to_fichas.decode(fic)[0]
 
-            #Verifico que tenga la ficha al asignar recompensa
+            # Verifico que tenga la ficha al asignar recompensa
             tengo = False
             for ficha in self.fichas:
                 tengo = ficha == ficha_jugada
-                if tengo : break
+                if tengo: break
 
-            reward = 0
+            reward = 1
+
             if not tengo: reward -= 30
-            
-            print( f'Tablero: {tablero} ')
-            print( f'Mis Fichas: {self.fichas}' )
-            print( f'\t Tratar de jugar ficha {ficha_jugada} - Reward: {reward:d}' )
 
-            idx1, idx2 = nJug1 in ficha, nJug2 in ficha_jugada
-            
-            '''if int(lado) == 0:
-                if nJug1 in ficha_jugada:pass
-                else: reward -= 10
-            else:
-                if nJug2 in ficha_jugada:pass
-                else: reward -= 10'''
+        self.actions.append(action)
+        self.rewards.append(reward)
 
-
-            # Add log probability of our chosen action to our history
-            if len( juego.policy.policy_history ) != 0:
-                # juego.policy.policy_history = torch.cat( [juego.policy.policy_history, torch.Tensor( [c.log_prob(action)] ) ] )
-                juego.policy.reward_episode.append(reward)
-            else:
-                # juego.policy.policy_history = ( c.log_prob(action) )
-                juego.policy.reward_episode.append( reward )
-
-            if reward < 0:
-                return tablero,ficha_jugada,True,ficha_jugada is None
-                '''for f in self.fichas:
-                    if nJug1 in f: ficha_jugada, idx1 = f, True
-                    if nJug2 in f: ficha_jugada, idx2 = f, True
-                    if idx1 or idx2: break
-
-                action = torch.Tensor( [np.argmax(encoder_to_fichas.encode([ficha_jugada]))] )
-                log=c.log_prob(action)
-                numpy_history = self.policy.policy_history
-                # print(self.policy.policy_history)
-                self.policy.policy_history = torch.cat((self.policy.policy_history,log))
-                self.policy.reward_episode.append(0)'''
-
-            if idx1 or idx2:
-                self.fichas.remove(ficha)
-                if idx1:
-                    if ficha.n2 == nJug1:
-                        tablero = [ficha] + tablero
-                    else:
-                        tablero = [ficha.inv()] + tablero
+        if tengo:
+            self.fichas.remove(ficha)
+            if idx1:
+                if ficha.n2 == nJug1:
+                    tablero = [ficha] + tablero
                 else:
-                    if ficha.n1 == nJug2:
-                        tablero = tablero + [ficha]
-                    else:
-                        tablero = tablero + [ficha.inv()]
+                    tablero = [ficha.inv()] + tablero
+            else:
+                if ficha.n1 == nJug2:
+                    tablero = tablero + [ficha]
+                else:
+                    tablero = tablero + [ficha.inv()]
 
-                return tablero,ficha_jugada,len(self.fichas) == 0,ficha_jugada is None
-            
-            else : return tablero,ficha_jugada,True,ficha_jugada is None
+            return tablero, ficha_jugada, len(self.fichas) == 0, ficha_jugada is None
+
+        else:
+            return tablero, ficha_jugada, len(self.fichas) == 0 , ficha_jugada is None
+
+        print(f'Tablero: {tablero} ')
+        print(f'Mis Fichas: {self.fichas}')
+        print(f'\t Tratar de jugar ficha {ficha_jugada} - Reward: {reward:d}')
 
 
 class Ficha :
