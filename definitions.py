@@ -67,7 +67,8 @@ class DQNAgent:
                       optimizer=Adam(lr=self.learning_rate))
         return model
     def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done))
+        for s in range(len(state)):
+            self.memory.append((state[s], action[s], reward[s], next_state[s], done[s]))
     def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)

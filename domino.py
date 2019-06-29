@@ -108,6 +108,7 @@ class Juego :
             nextStates.extend([0])
             done.extend((np.zeros(len(jugador.nextStates))))
             done.extend([1])
+        #Se esperan ciertos juegos hasta empezar a entrenar al agente
         if len(states)>500:
             self.agent.replay(256)
 
