@@ -22,10 +22,10 @@ class Juego :
 
         cantFichas = self.cantFichas()
         # Tamaño del vector de estados y acciones
-        actionSize = cantFichas * 2 + 1
-        stateSize = cantFichas * nJug + nMax + 1
+        self.actionSize = cantFichas * 2 + 1
+        self.stateSize = cantFichas * nJug + nMax + 1
         # Crea al agente
-        self.agent = DQNAgent(stateSize, actionSize)
+        self.agent = DQNAgent(self.stateSize, self.actionSize)
 
     def cantFichas(self) -> int:
         n = self.nMax
@@ -57,7 +57,7 @@ class Juego :
         for ficha in self.tablero: s += str(ficha) + "  "
         print(s+"\n")
 
-    def jugar(self):
+    def jugar(self,ep):
         self.repartir()
         if DEBUG : self.printJugadores()            
 
@@ -75,9 +75,9 @@ class Juego :
         self.encNum = Encoder( range(self.nMax+1) )
 
         while not acabar:
-            if self.jugadores[idx]==0:
+            if self.jugadores[idx].typeAgent==0:
                 self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero, self )
-            elif self.jugadores[idx]==1:
+            elif self.jugadores[idx].typeAgent==1:
                 self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRL(self.tablero, self.agent, self)
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
@@ -105,13 +105,16 @@ class Juego :
             states.extend( jugador.states )
             actions.extend( jugador.actions )
             nextStates.extend( jugador.nextStates )
-            nextStates.extend([0])
+            nextStates.extend(np.zeros((1,self.stateSize)).astype(int))
             done.extend((np.zeros(len(jugador.nextStates))))
             done.extend([1])
             rewards.extend(jugador.rewards)
+
+
+        self.agent.remember(states, actions, rewards, nextStates, done)
         #Se esperan ciertos juegos hasta empezar a entrenar al agente
 
-        if len(states)>500:
+        if ep%100==0 and len(self.agent.memory)>500:
             self.agent.replay(256)
 
         #train=np.concatenate(states,actions,axis=1)

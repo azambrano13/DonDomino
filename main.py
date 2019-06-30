@@ -13,7 +13,7 @@ R = []
 loss = []
 for episode in range(EPISODES):
     print(f'Partida {episode+1:d}/{EPISODES:d}...')
-    juego.jugar()
+    juego.jugar(episode)
 
     juego.reset()
 
