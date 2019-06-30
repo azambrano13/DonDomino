@@ -50,19 +50,21 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = cl.deque(maxlen=20000000)
+        self.memory = cl.deque(maxlen=20000000000)
         self.gamma = 0.95    # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.9
         self.learning_rate = 0.001
         self.model = self._build_model()
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
         model.add(Dense(128, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(128, input_dim=self.state_size, activation='relu'))
         model.add(Dense(64, activation='relu'))
-        model.add(Dense(32, activation='relu'))
+        model.add(Dense(64, activation='relu'))
+        model.add(Dense(56, activation='relu'))
 
         model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
@@ -72,8 +74,13 @@ class DQNAgent:
         for s in range(len(state)):
             self.memory.append((state[s], action[s], reward[s], next_state[s], done[s]))
     def act(self, state):
+        state = np.reshape(state, [1, len(state)])
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0])  # returns action
+    def test(self, state):
+        state = np.reshape(state, [1, len(state)])
         act_values = self.model.predict(state)
         return np.argmax(act_values[0])  # returns action
     def replay(self, batch_size):
@@ -87,7 +94,7 @@ class DQNAgent:
                        np.amax(self.model.predict(next_state)[0])
             target_f = self.model.predict(state)
             target_f[0][action] = target
-            self.model.fit(state, target_f, epochs=100, verbose=2)
+            self.model.fit(state, target_f, epochs=50, verbose=0)
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
     def saveModel( self, name ) :

@@ -2,8 +2,9 @@ from domino import *
 from definitions import *
 import matplotlib.pyplot as plt
 
-EPISODES = 1000
-
+EPISODES = 100000
+testEp=5000
+testNum=500
 pMax=6
 jug=4
 juego = Juego(pMax,jug)
@@ -11,13 +12,18 @@ juego = Juego(pMax,jug)
 E = []
 R = []
 loss = []
+vict=[]
 for episode in range(EPISODES):
     print(f'Partida {episode+1:d}/{EPISODES:d}...')
-    juego.jugar(episode)
+    ganador=juego.jugar(episode,0)
 
     juego.reset()
 
-juego.policy.saveModel( 'test' )
+    if episode%testEp==0:
+        vict.append(juego.test(testNum))
+        print(vict)
+
+#juego.agent.saveModel( 'test' )
 
 '''
 plt.figure()
@@ -31,6 +37,5 @@ plt.hist( R )
 plt.xlabel("Rewards")'''
 
 plt.figure()
-plt.plot( juego.policy.loss_history )
-
+plt.plot(vict)
 plt.show()

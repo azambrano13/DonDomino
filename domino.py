@@ -14,7 +14,7 @@ class Juego :
         self.nJug = nJug
 
         nFichas = int(self.cantFichas()/nJug)
-        types = [0,0,0,0]
+        types = [1,0,0,0]
         self.jugadores = [ Jugador( i, nFichas, nMax, types[i] ) for i in range(nJug) ]
 
         self.tablero = []
@@ -57,7 +57,7 @@ class Juego :
         for ficha in self.tablero: s += str(ficha) + "  "
         print(s+"\n")
 
-    def jugar(self,ep):
+    def jugar(self,ep,prueba):
         self.repartir()
         if DEBUG : self.printJugadores()            
 
@@ -78,18 +78,26 @@ class Juego :
             if self.jugadores[idx].typeAgent==0:
                 self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRandom( self.tablero, self )
             elif self.jugadores[idx].typeAgent==1:
-                self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRL(self.tablero, self.agent, self)
+                self.tablero, ficha, acabar, pasar = self.jugadores[idx].jugarRL(self.tablero, self, self.agent, prueba)
 
             if DEBUG : print(f'Turno {k:d}, el Jugador {idx:d} juega la Ficha {ficha}')
 
             if pasar: nPas += 1
             else: nPas = 0
-
-            if nPas == self.nJug: acabar = True
-
+            ganador = idx
+            if nPas == self.nJug:
+                acabar = True
+                suma=100
+                for j in range(len(self.jugadores)):
+                    for f in self.jugadores[j].fichas:
+                        suma1=f.n1+f.n2
+                    if suma1<suma:
+                        suma=suma1
+                        ganador=j
             if DEBUG : self.printJugadores()
             if DEBUG : self.printTablero()
 
+            #Determina ganador de la partida
             idx += 1
             idx %= self.nJug
             k += 1
@@ -110,12 +118,14 @@ class Juego :
             done.extend([1])
             rewards.extend(jugador.rewards)
 
-
         self.agent.remember(states, actions, rewards, nextStates, done)
         #Se esperan ciertos juegos hasta empezar a entrenar al agente
 
-        if ep%100==0 and len(self.agent.memory)>500:
+        if ep % 2500==0 and len(self.agent.memory)>500:
             self.agent.replay(256)
+        self.reset()
+
+        return ganador
 
         #train=np.concatenate(states,actions,axis=1)
 
@@ -126,6 +136,18 @@ class Juego :
         if DEBUG and nPas == self.nJug: print('Se cerró el Juego :(')
 
         return self.policy.loss_history'''
+
+    #Verifica cuántas ganó RL
+    def test(self,Nume):
+        vict=0
+        ganador=[]
+        for i in range(Nume):
+            ganador.append(self.jugar(1,0))
+            if ganador[i]==0:
+                vict=vict+1
+        return vict
+
+
         
 class Jugador :
 
@@ -223,7 +245,7 @@ class Jugador :
 
         return tablero, ficha, len(self.fichas) == 0, ficha is None
 
-    def jugarRL( self, tablero, juego, agent ) :
+    def jugarRL( self, tablero, juego, agent, prueba ) :
         # Al inicio siempre se juega el [6|6]
         if not tablero:
             ficha = Ficha(self.nMax, self.nMax)
@@ -263,7 +285,11 @@ class Jugador :
             # state = state.reshape( [-1,1] )
             self.states.append(state)
 
-        action = agent.act(state)
+        tengo = False
+        ficha_jugada=None
+        #Aplica o no exploración dependiendo de si debe aprender o probar
+        if prueba==0: action = agent.act(state)
+        else: action = agent.test(state)
         if action==56:
             reward=-1
         else:
@@ -275,7 +301,6 @@ class Jugador :
             ficha_jugada = encoder_to_fichas.decode(fic)[0]
 
             # Verifico que tenga la ficha al asignar recompensa
-            tengo = False
             for ficha in self.fichas:
                 tengo = ficha == ficha_jugada
                 if tengo: break
