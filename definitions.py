@@ -50,7 +50,7 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = cl.deque(maxlen=2000000000000)
+        self.memory = cl.deque(maxlen=1300)
         self.gamma = 0.95    # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01

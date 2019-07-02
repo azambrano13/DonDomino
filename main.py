@@ -3,8 +3,8 @@ from definitions import *
 import matplotlib.pyplot as plt
 
 EPISODES = 100000
-testEp=5000
-testNum=500
+testEp=1000
+testNum=200
 pMax=6
 jug=4
 juego = Juego(pMax,jug)
@@ -13,7 +13,7 @@ E = []
 R = []
 loss = []
 vict=[]
-for episode in range(EPISODES):
+for episode in range(EPISODES+1):
     print(f'Partida {episode+1:d}/{EPISODES:d}...')
     ganador=juego.jugar(episode,0)
 

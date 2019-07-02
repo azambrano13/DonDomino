@@ -121,8 +121,8 @@ class Juego :
         self.agent.remember(states, actions, rewards, nextStates, done)
         #Se esperan ciertos juegos hasta empezar a entrenar al agente
 
-        if ep % 2500==0 and len(self.agent.memory)>500:
-            self.agent.replay(256)
+        if ep % 100==0 and len(self.agent.memory)>500:
+            self.agent.replay(1024)
         self.reset()
 
         return ganador
