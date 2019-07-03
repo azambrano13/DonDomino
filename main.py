@@ -23,7 +23,7 @@ for episode in range(EPISODES+1):
         vict.append(juego.test(testNum))
         print(vict)
 
-#juego.agent.saveModel( 'test' )
+
 
 '''
 plt.figure()
@@ -39,3 +39,4 @@ plt.xlabel("Rewards")'''
 plt.figure()
 plt.plot(vict)
 plt.show()
+juego.agent.saveModel( 'test' )

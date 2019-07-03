@@ -109,19 +109,23 @@ class Juego :
         # if len(self.rewards) > 0 : update_policy(self.policy, self.optim)
 
         states, actions, nextStates, rewards, done = [], [], [], [], []
-        for jugador in self.jugadores : 
-            states.extend( jugador.states )
-            actions.extend( jugador.actions )
-            nextStates.extend( jugador.nextStates )
+        for jug in range(len(self.jugadores)) :
+            states.extend( self.jugadores[jug].states )
+            actions.extend( self.jugadores[jug].actions )
+            nextStates.extend( self.jugadores[jug].nextStates )
             nextStates.extend(np.zeros((1,self.stateSize)).astype(int))
-            done.extend((np.zeros(len(jugador.nextStates))))
+            done.extend((np.zeros(len(self.jugadores[jug].nextStates))))
             done.extend([1])
-            rewards.extend(jugador.rewards)
+            if jug==ganador:
+                self.jugadores[jug].rewards[-1]=5
+            else:
+                self.jugadores[jug].rewards[-1]=-5
+            rewards.extend(self.jugadores[jug].rewards)
 
         self.agent.remember(states, actions, rewards, nextStates, done)
         #Se esperan ciertos juegos hasta empezar a entrenar al agente
 
-        if ep % 100==0 and len(self.agent.memory)>500:
+        if ep % 100==0 and len(self.agent.memory)>1024:
             self.agent.replay(1024)
         self.reset()
 

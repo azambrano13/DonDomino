@@ -40,10 +40,10 @@ def update_policy( policy, optimizer ):
     policy.policy_history = Variable(torch.Tensor())
     policy.reward_episode = []
 '''
-'''
+
 def getGPUs():
     devices = device_lib.list_local_devices()
-    return [ device.name for device in devices if device.device_type == 'GPU']'''
+    return [ device.name for device in devices if device.device_type == 'GPU']
 
 # Deep Q-learning Agent
 class DQNAgent:
@@ -57,6 +57,9 @@ class DQNAgent:
         self.epsilon_decay = 0.9
         self.learning_rate = 0.001
         self.model = self._build_model()
+        self.device = "CPU:0"
+        gpus = getGPUs( )
+        if gpus : self.device = gpus[0]
     def _build_model(self):
         # Neural Net for Deep-Q learning Model
         model = Sequential()
